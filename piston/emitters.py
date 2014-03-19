@@ -23,13 +23,22 @@ except NameError:
 
 from django.db.models.query import QuerySet
 from django.db.models import Model, permalink
-#from django.utils import simplejson
 from django.utils.xmlutils import SimplerXMLGenerator
 from django.utils.encoding import smart_unicode
 from django.core.urlresolvers import reverse, NoReverseMatch
 from django.core.serializers.json import DateTimeAwareJSONEncoder
 from django.http import HttpResponse
 from django.core import serializers
+
+import django
+if django.VERSION >= (1, 5):
+    # In 1.5 and later, DateTimeAwareJSONEncoder inherits from json.JSONEncoder,
+    # while in 1.4 and earlier it inherits from simplejson.JSONEncoder.  The two
+    # are not compatible due to keyword argument namedtuple_as_object, and we
+    # have to ensure that the 'dumps' function we use is the right one.
+    import json
+else:
+    from django.utils import simplejson as json
 
 from utils import HttpStatusCode, Mimer
 from validate_jsonp import is_valid_jsonp_callback_value
@@ -102,6 +111,16 @@ class Emitter(object):
             """
             ret = None
 
+            # return anything we've already seen as a string only
+            # this prevents infinite recursion in the case of recursive 
+            # relationships
+
+            if thing in self.stack:
+                raise RuntimeError, (u'Circular reference detected while emitting '
+                                     'response')
+
+            self.stack.append(thing)
+
             if isinstance(thing, QuerySet):
                 ret = _qs(thing, fields)
             elif isinstance(thing, (tuple, list, set)):
@@ -125,6 +144,8 @@ class Emitter(object):
                 ret = _any(thing.all())
             else:
                 ret = smart_unicode(thing, strings_only=True)
+
+            self.stack.pop()
 
             return ret
 
@@ -157,7 +178,13 @@ class Emitter(object):
 
             if handler or fields:
                 v = lambda f: getattr(data, f.attname)
-
+                # FIXME
+                # Catch 22 here. Either we use the fields from the
+                # typemapped handler to make nested models work but the
+                # declared list_fields will ignored for models, or we
+                # use the list_fields from the base handler and accept that
+                # the nested models won't appear properly
+                # Refs #157
                 if handler:
                     fields = getattr(handler, 'fields')    
                 
@@ -298,6 +325,7 @@ class Emitter(object):
             return dict([ (k, _any(v, fields)) for k, v in data.iteritems() ])
 
         # Kickstart the seralizin'.
+        self.stack = [];
         return _any(self.data, self.fields)
 
     def in_typemapper(self, model, anonymous):
@@ -398,7 +426,7 @@ class JSONEmitter(Emitter):
         return seria
 
 Emitter.register('json', JSONEmitter, 'application/json; charset=utf-8')
-Mimer.register(simplejson.loads, ('application/json',))
+Mimer.register(json.loads, ('application/json',))
 
 class YAMLEmitter(Emitter):
     """
