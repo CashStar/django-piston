@@ -242,6 +242,11 @@ class Resource(object):
         """True iff result is a HttpResponse and contains non-string content."""
         if not isinstance(result, HttpResponse):
             return False
+        if django.VERSION >= (1,8):
+            # There isn't an easy way to store non-string values in an HttpResponse
+            # object any more in django 1.8. This means we'll need to return 
+            # only string values going forward. 
+            return False
         elif django.VERSION >= (1, 4):
             return result._base_content_is_iter
         else:
