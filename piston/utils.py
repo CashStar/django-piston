@@ -10,9 +10,10 @@ from django.conf import settings
 from django.utils.translation import ugettext as _
 from django.template import loader, TemplateDoesNotExist
 from django.contrib.sites.models import Site
-from decorator import decorator
+from .decorator import decorator
 
 from datetime import datetime, timedelta
+import six
 
 __version__ = '0.2.3rc1'
 
@@ -70,7 +71,7 @@ class rc_factory(object):
                     http://code.djangoproject.com/ticket/9403
                     """
                     is_string = False
-                    if not isinstance(content, basestring) and hasattr(content, '__iter__'):
+                    if not isinstance(content, six.string_types) and hasattr(content, '__iter__'):
                         self._container = content
                     else:
                         self._container = [content]
@@ -226,7 +227,7 @@ class Mimer(object):
         Gets a function ref to deserialize content
         for a certain mimetype.
         """
-        for loadee, mimes in Mimer.TYPES.iteritems():
+        for loadee, mimes in six.iteritems(Mimer.TYPES):
             for mime in mimes:
                 if ctype.startswith(mime):
                     return loadee
@@ -358,7 +359,7 @@ def send_consumer_mail(consumer):
         mail_admins(_(subject), body, fail_silently=True)
 
     if settings.DEBUG and consumer.user:
-        print "Mail being sent, to=%s" % consumer.user.email
-        print "Subject: %s" % _(subject)
-        print body
+        print("Mail being sent, to=%s" % consumer.user.email)
+        print("Subject: %s" % _(subject))
+        print(body)
 

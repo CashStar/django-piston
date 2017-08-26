@@ -9,18 +9,19 @@ from django.conf import settings
 from django.core.mail import send_mail, EmailMessage
 from django.db.models.query import QuerySet
 from django.http import Http404
+import six
 
 try:
     import mimeparse
 except ImportError:
     mimeparse = None
 
-from emitters import Emitter
-from handler import typemapper
-from doc import HandlerMethod
-from authentication import NoAuthentication
-from utils import coerce_put_post, FormValidationError, HttpStatusCode
-from utils import rc, format_error, translate_mime, MimerDataException
+from .emitters import Emitter
+from .handler import typemapper
+from .doc import HandlerMethod
+from .authentication import NoAuthentication
+from .utils import coerce_put_post, FormValidationError, HttpStatusCode
+from .utils import rc, format_error, translate_mime, MimerDataException
 
 CHALLENGE = object()
 
@@ -37,7 +38,7 @@ class Resource(object):
 
     def __init__(self, handler, authentication=None):
         if not callable(handler):
-            raise AttributeError, "Handler not callable."
+            raise AttributeError("Handler not callable.")
 
         self.handler = handler()
         self.csrf_exempt = getattr(self.handler, 'csrf_exempt', True)
@@ -90,7 +91,7 @@ class Resource(object):
         `Resource` subclass.
         """
         resp = rc.BAD_REQUEST
-        resp.write(u' '+unicode(e.form.errors))
+        resp.write(u' '+six.text_type(e.form.errors))
         return resp
 
     @property
@@ -186,7 +187,7 @@ class Resource(object):
 
         try:
             result = meth(request, *args, **kwargs)
-        except Exception, e:
+        except Exception as e:
             result = self.error_handler(e, request, meth, em_format)
 
         try:
@@ -234,7 +235,7 @@ class Resource(object):
             resp.streaming = self.stream
 
             return resp
-        except HttpStatusCode, e:
+        except HttpStatusCode as e:
             return e.response
 
     @staticmethod
